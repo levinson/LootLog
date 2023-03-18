@@ -1,4 +1,8 @@
-function printLoot(index, link, tert, sockets)
+function log(msg)
+    print("|cffC1FFBA"..msg)
+end
+
+function logLoot(index, link, tert, sockets)
     local upgrades = {}
     if (tert ~= "None") then
         upgrades[#upgrades + 1] = tert
@@ -8,15 +12,38 @@ function printLoot(index, link, tert, sockets)
     end
     local prefix = "Loot #"..index.." "..link
     if (#upgrades > 0) then
-        print(prefix.." ("..table.concat(upgrades, " / ")..")")
+        log(prefix.." ("..table.concat(upgrades, " / ")..")")
     else
-        print(prefix)
+        log(prefix)
     end
 end
 
-function printLoots(index, count, zoneFilter, expacFilter)
+function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
+    local msg = "[LootLog] "..prefix.." #"..index
+    if (lastIndex ~= index) then
+        msg = msg.."-"..lastIndex
+    end
+    local filters = {}
+    if (zoneFilter ~= nil) then
+        filters[#filters + 1] = "zone is "..zoneFilter
+    end
+    if (expacFilter ~= nil) then
+        filters[#filters + 1] = "expac is "..expacFilter
+    end
+    if (#filters > 0) then
+        log(msg.." where "..table.concat(filters, " and "))
+    else
+        log(msg)
+    end
+    return msg
+end
+
+function logLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
-    local lastIndex = math.min(index + count, #lootTable)
+    local lastIndex = math.min(index + count - 1, #lootTable)
+
+    logQuery("Listing", index, lastIndex, zoneFilter, expacFilter)
+
     for i = index, lastIndex do
         local link = ""
         local tert = ""
@@ -45,120 +72,368 @@ function printLoots(index, count, zoneFilter, expacFilter)
         if (zoneFilter ~= nil and zoneFilter ~= zone) then
         elseif (expacFilter ~= nil and expacFilter ~= expac) then
         else
-            printLoot(i, link, tert, sockets)
+            logLoot(i, link, tert, sockets)
         end
     end
 end
 
-function getNumRange(arg)
+function resetLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
-    -- default to last 100 elements
-    local index = math.max(#lootTable - 100, 1)
-    local count = 100
+    local lastIndex = math.min(index + count - 1, #lootTable)
+
+    logQuery("Resetting", index, lastIndex, zoneFilter, expacFilter)
+
+    local updatedLoots = {}
+    for i = 1, #lootTable do
+        local zone = ""
+        local expac = ""
+
+        for k,v in pairs(lootTable[i]) do
+            if (k == "zone") then
+                zone = v
+            end
+            if (k == "expac") then
+                expac = v
+            end
+        end
+
+        if (i >= index and i <= lastIndex) then
+            if (zoneFilter ~= nil and zoneFilter ~= zone) then
+                updatedLoots[#updatedLoots + 1] = lootTable[i]
+            elseif (expacFilter ~= nil and expacFilter ~= expac) then
+                updatedLoots[#updatedLoots + 1] = lootTable[i]
+            end
+        else
+            updatedLoots[#updatedLoots + 1] = lootTable[i]
+        end
+    end
+    LootLogSavedVars = updatedLoots
+end
+
+function lootStats(index, count, zoneFilter, expacFilter)
+    local numDrops = 0
+    local numUpgrades = 0
+    local numDoubleUpgrades = 0
+    local numTripleUpgrades = 0
+    local numEpicUpgrades = 0
+    local numTertUpgrades = 0
+    local numSocketUpgrades = 0
+    local numCanProcSocketUpgrade = 0
+    local numDidProcSocketUpgrade = 0
+    local numEpicSocketUpgrades = 0
+    local numEpicTertUpgrades = 0
+
+    local upgradeStreak = 0
+    local noUpgradeStreak = 0
+    local longestUpgradeStreak = 0
+    local longestNoUpgradeStreak = 0
+
+    local lootTable = LootLogSavedVars or {}
+    local lastIndex = math.min(index + count - 1, #lootTable)
+
+    logQuery("Stats for", index, lastIndex, zoneFilter, expacFilter)
+
+    for i = 1, #lootTable do
+        if (i >= index and i <= lastIndex) then
+            local rarity = ""
+            local tert = "None"
+            local sockets = 0
+            local zone = ""
+            local expac = ""
+            local slot = ""
     
-    -- default to last 100 elements
-    if (arg == nil) then
-        return index, count
+            for k,v in pairs(lootTable[i]) do
+                if (k == "rarity") then
+                    rarity = v
+                end
+                if (k == "tert") then
+                    tert = v
+                end
+                if (k == "sockets") then
+                    sockets = v
+                end
+                if (k == "zone") then
+                    zone = v
+                end
+                if (k == "expac") then
+                    expac = v
+                end
+                if (k == "slot") then
+                    slot = v
+                end
+            end
+
+            if (zoneFilter ~= nil and zoneFilter ~= zone) then
+            elseif (expacFilter ~= nil and expacFilter ~= expac) then
+            else
+                numDrops = numDrops + 1
+
+                local canProcSocket = false
+                if (slot == "INVTYPE_FINGER" or slot == "INVTYPE_HEAD" or slot == "INVTYPE_NECK" or slot == "INVTYPE_WAIST" or slot == "INVTYPE_WRIST") then
+                    canProcSocket = true
+                    numCanProcSocketUpgrade = numCanProcSocketUpgrade + 1
+                    if (sockets > 0) then
+                        numDidProcSocketUpgrade = numDidProcSocketUpgrade + 1
+                    end
+                end
+        
+                local upgradeCount = 0
+                if (rarity == "Epic") then
+                    if (sockets > 0) then
+                        numEpicSocketUpgrades = numEpicSocketUpgrades + 1
+                    end
+                    if (tert ~= "None") then
+                        numEpicTertUpgrades = numEpicTertUpgrades + 1
+                    end
+                    numEpicUpgrades = numEpicUpgrades + 1
+                    upgradeCount = upgradeCount + 1
+                end
+                if (tert ~= "None") then
+                    numTertUpgrades = numTertUpgrades + 1
+                    upgradeCount = upgradeCount + 1
+                end
+                if (sockets > 0) then
+                    numSocketUpgrades = numSocketUpgrades + 1
+                    upgradeCount = upgradeCount + 1
+                end
+
+                if (upgradeCount > 0) then
+                    numUpgrades = numUpgrades + 1
+                    upgradeStreak = upgradeStreak + 1
+                    noUpgradeStreak = 0
+                else
+                    noUpgradeStreak = noUpgradeStreak + 1
+                    upgradeStreak = 0
+                end
+
+                if (upgradeStreak > longestUpgradeStreak) then
+                    longestUpgradeStreak = upgradeStreak
+                end
+                if (noUpgradeStreak > longestNoUpgradeStreak) then
+                    longestNoUpgradeStreak = noUpgradeStreak
+                end
+
+                if (upgradeCount > 1) then
+                    numDoubleUpgrades = numDoubleUpgrades + 1
+                end
+                if (upgradeCount > 2) then
+                    numTripleUpgrades = numTripleUpgrades + 1
+                end    
+            end
+        end
     end
 
-    local index, lastIndex = arg:match("(%d+)-(%d+)")
-    if (index == nil) then
-        index = arg:match("(%d+)")
-        lastIndex = index
+    log("Number of drops: "..numDrops)
+    log("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
+    log("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
+    log("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops))
+    log("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
+    log("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
+    log("Can proc socket: "..getCountAndPercent(numCanProcSocketUpgrade, numDrops))
+    log("Socket ugprades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+    log("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+    log("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
+    log("Longest upgrade streak: "..longestUpgradeStreak)
+    log("Longest no-upgrade streak: "..longestNoUpgradeStreak)
+end
+
+function getNumRange(args)
+    local indexStr = nil
+    local lastIndexStr = nil
+    local index = nil
+    local count = nil
+    local arg, args = args:match("%s*(%S+)(.*)")
+    while (arg ~= nil) do
+        local indexStr, lastIndexStr = arg:match("(%d+)-(%d+)")
+        if (indexStr == nil) then
+            indexStr = arg:match("(%d+)")
+            lastIndexStr = indexStr
+        end
+
+        if (indexStr ~= nil and lastIndexStr ~= nil) then
+            index = tonumber(indexStr)
+            count = tonumber(lastIndexStr) - index + 1
+        end
+        
+        arg, args = args:match("%s*(%S+)(.*)")
     end
 
-    if (index == nil or lastIndex == nil) then
-        print("Failed to parse range: "..arg)
-        return index, count
+    return index, count
+end
+
+function getExpacID(instanceID)
+    local expacID = nil
+    if (instanceID == 0 or instanceID == 1) then
+        expacID = 0
+    elseif (instanceID == 530) then
+        expacID = 1
+    elseif (instanceID == 571) then
+        expacID = 2
+    elseif (instanceID == 646 or instanceID == 730 or instanceID == 732) then
+        expacID = 3
+    elseif (instanceID == 860 or instanceID == 870 or instanceID == 1064) then
+        expacID = 4
+    elseif (instanceID == 1116 or instanceID == 1191 or instanceID == 1464) then
+        expacID = 5
+    elseif (instanceID == 1220 or instanceID == 1669) then
+        expacID = 6
+    elseif (instanceID == 1642 or instanceID == 1643 or instanceID == 1718) then
+        expacID = 7
+    elseif (instanceID == 2222 or instanceID == 2374) then
+        expacID = 8
+    elseif (instanceId == 2444) then
+        expacID = 9
+    end
+    return expacID
+end
+
+function getExpacName(expacID)
+    local expacName = tostring(expacID)
+    if (expacID == 0) then
+        expacName = "Classic"
+    elseif (expacID == 1) then
+        expacName = "TBC"
+    elseif (expacID == 2) then
+        expacName = "Wrath"
+    elseif (expacID == 3) then
+        expacName = "Cata"
+    elseif (expacID == 4) then
+        expacName = "MoP"
+    elseif (expacID == 5) then
+        expacName = "WoD"
+    elseif (expacID == 6) then
+        expacName = "Legion"
+    elseif (expacID == 7) then
+        expacName = "BfA"
+    elseif (expacID == 8) then
+        expacName = "Shadowlands"
+    elseif (expacID == 9) then
+        expacName = "Dragonflight"
+    end
+    return expacName
+end
+
+function getFilters(args)
+    -- parse filters from args
+    local zoneFilter = nil
+    local expacFilter = nil
+    local lootTable = LootLogSavedVars or {}
+    local zoneName, _, _, _, _, _, _, instanceID = GetInstanceInfo()
+    if (args == nil) then
+        args = ""
+    end
+    local arg, args = args:match("%s*(%S+)(.*)")
+    while (arg ~= nil) do
+        if (arg == "zone") then
+            zoneFilter = zoneName
+        elseif (arg == "expac") then
+            local expacID = getExpacID(instanceID)
+            if (expacID ~= nil) then
+                expacFilter = getExpacName(expacID)
+            end
+            if (expacFilter == nil) then
+                -- find a drop in my zone to lookup expac
+                for k,v in pairs(lootTable) do
+                    -- k is index, v is table
+                    local zone = ""
+                    local expac = ""
+                    for k,v in pairs(v) do
+                        if (k == "zone") then
+                            zone = v
+                        elseif (k == "expac") then
+                            expac = v
+                        end
+                    end
+
+                    if (zone == zoneName and expac ~= "") then
+                        expacFilter = expac
+                        break
+                    end
+                end
+
+                if (expacFilter == nil) then
+                    log("[LootLog] Failed to lookup expac based on current zone")
+                    expacFilter = ""
+                end
+            end
+        end
+        arg, args = args:match("%s*(%S+)(.*)")
+    end
+
+    return zoneFilter, expacFilter
+end
+
+function getPercent(count, total)
+    return math.floor(count * 10000 / total) / 100
+end
+
+function getCountAndPercent(count, total, numEligible)
+    if (numEligible == nil) then
+        return count.." ("..getPercent(count, total).."%)"
     else
-        local start = tonumber(index)
-        local count = tonumber(lastIndex) - start
-        return start, count
+        return count.." ("..getPercent(count, total).."% of total or "..getPercent(count, numEligible).."% of eligible)"
     end
 end
 
 SLASH_LOOTLOG1 = "/lootlog"
+SLASH_LOOTLOG2 = "/ll"
 function SlashCmdList.LOOTLOG(msg)
-    -- parse command line
-    local arg1, arg2, arg3
-    arg1, arg2, arg3 = msg:match("%s*(%S+)%s+(%S+)%s+(%S+)%s*")
-    if (arg1 == nil) then
-        arg1, arg2 = msg:match("%s*(%S+)%s+(%S+)%s*")
-    end
-    if (arg1 == nil) then
-        arg1 = msg:match("%s*(%S+)%s*")
-    end
-
+    local cmd, args = msg:match("%s*(%S+)(.*)")
+    local zoneFilter, expacFilter = getFilters(args)
     local lootTable = LootLogSavedVars or {}
 
-    if (arg1 ~= nil) then
-        if (arg1 == "list") then
-            if (arg2 == nil) then
-                local index, count = getNumRange(nil)
-                printLoots(index, count)
-            elseif (arg2 ~= nil) then
-                if (arg2 == "zone") then
-                    local index, count = getNumRange(arg3)
-                    local zoneFilter = GetInstanceInfo()
-                    printLoots(index, count, zoneFilter)
-                elseif (arg2 == "expac") then
-                    -- Lookup expansion by finding drop from current zone
-                    local zoneFilter = GetInstanceInfo()
-                    local expacFilter = nil
-                    for k,v in pairs(lootTable) do
-                        -- k is index, v is table
-                        local zone = ""
-                        local expac = ""
-                        for k,v in pairs(v) do
-                            if (k == "zone") then
-                                zone = v
-                            end
-                            if (k == "expac") then
-                                expac = v
-                            end
-                        end
+    if (cmd == "list") then
+        local index, count = getNumRange(args)
 
-                        if (zone == zoneFilter and expac ~= "") then
-                            expacFilter = expac
-                            break
-                        end
-                    end
-
-                    if (expacFilter ~= nil) then
-                        local index, count = getNumRange(arg3)
-                        printLoots(index, count, nil, expacFilter)
-                    else
-                        print("Failed to lookup expac based on current zone")
-                    end
-                else
-                    local index, count = getNumRange(arg2)
-                    printLoots(index, count)
-                end
-            end
-        elseif (arg1 == "reset") then
-            if (arg2 == nil) then
-                LootLogSavedVars = {}
-            else
-                usage()
-            end
-        else
-            usage()
+        -- Default to last 100 loots
+        if (index == nil or count == nil) then
+            index = math.max(#lootTable - 100, 1)
+            count = 100
         end
-    else        
+
+        logLoots(index, count, zoneFilter, expacFilter)
+    elseif (cmd == "reset") then
+        local index, count = getNumRange(args)
+
+        -- Default to all loots
+        if (index == nil or count == nil) then
+            log("[LootLog] You must define a range for reset")
+        else
+            resetLoots(index, count, zoneFilter, expacFilter)
+        end
+    elseif (cmd == "stats") then
+        local index, count = getNumRange(args)
+
+        -- Default to all loots
+        if (index == nil or count == nil) then
+            index = 1
+            count = #lootTable
+        end
+
+        lootStats(index, count, zoneFilter, expacFilter)
+    elseif (cmd ~= nil)then
+        log("[LootLog] Unsupported command: "..cmd)
+        usage()
+    else
         usage()
     end
 end
 
 function usage()
-    print("LootLog usage:")
-    print("/lootlog list [zone|expac] [#[-#]]")
-    print("/lootlog reset")
-    print("")
-    print("Examples:")
-    print("/lootlog list")
-    print("/lootlog list expac 1-100")
-    print("/lootlog reset")
+    log("[LootLog] Usage:")
+    log("/lootlog list [zone|expac] [#[-#]]")
+    log("/lootlog stats [zone|expac] [#[-#]]")
+    log("/lootlog reset [zone|expac] #[-#]")
+    log("")
+    log("Examples:")
+    log("/ll list")
+    log("/lootlog list 1-100 expac")
+    log("/lootlog stats zone")
+    log("/lootlog reset 42")
 end
+
+-- global to avoid adding the drop twice if inventory is full
+lootLogLastDropGuid = ""
 
 local frame = CreateFrame("FRAME")
 frame:RegisterEvent("LOOT_OPENED")
@@ -166,6 +441,9 @@ frame:RegisterEvent("LOOT_OPENED")
 local function eventHandler(self, event, ...)
     local lootTable = LootLogSavedVars or {}
     local numLootItems = GetNumLootItems()
+    local targetGuid = UnitGUID("target")
+    local targetName = GetUnitName("target") 
+    local _, lootspecName = GetSpecializationInfoByID(GetLootSpecialization())
 
     for i = 1, numLootItems do
         local itemLink = GetLootSlotLink(i)
@@ -173,7 +451,7 @@ local function eventHandler(self, event, ...)
         if itemLink then
             local itemName, itemLink, itemQuality, _, _, itemType, _, _, itemEquipLoc, _, _, _, _, _, expacId = GetItemInfo(itemLink)
 
-            if (itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon")) then
+            if (itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon") and targetGuid ~= lootLogLastDropGuid) then
                 local itemStats = GetItemStats(itemLink)           
 
                 local numSockets = 0
@@ -202,28 +480,7 @@ local function eventHandler(self, event, ...)
                     itemRarity = "Legendary"
                 end
 
-                local expansion = tostring(expacId)
-                if (expacId == 0) then
-                    expansion = "Classic"
-                elseif (expacId == 1) then
-                    expansion = "TBC"
-                elseif (expacId == 2) then
-                    expansion = "Wrath"
-                elseif (expacId == 3) then
-                    expansion = "Cata"
-                elseif (expacId == 4) then
-                    expansion = "MoP"
-                elseif (expacId == 5) then
-                    expansion = "WoD"
-                elseif (expacId == 6) then
-                    expansion = "Legion"
-                elseif (expacId == 7) then
-                    expansion = "BfA"
-                elseif (expacId == 8) then
-                    expansion = "Shadowlands"
-                elseif (expacId == 9) then
-                    expansion = "Dragonflight"
-                end
+                local expacName = getExpacName(expacId)
 
                 -- item stats
                 local numTimesLooted = 1
@@ -291,24 +548,23 @@ local function eventHandler(self, event, ...)
                     end
                 end
 
-                printLoot(#lootTable + 1, itemLink, tertiaryStat, numSockets)
+                logLoot(#lootTable + 1, itemLink, tertiaryStat, numSockets)
 
                 if (numTimesLooted == 1) then
-                    print("This is the first time you have looted this item")
+                    log("This is the first time you have looted this item")
                 else
-                    print("You have looted this item "..numTimesLooted.." times")
+                    log("You have looted this item "..numTimesLooted.." times")
                 end
 
                 if (numTimesLooted > 1) then
                     if (numTimesLooted ~= numTimesLootedVariation) then
+                        local percent = getPercent(numTimesLootedVariation, numTimesLooted)
                         if (numTimesLootedVariation == 1) then
-                            print("This is the first time you have looted this variation")
+                            log("This is the first time you have looted this variation")
+                            log("This variation has appeared "..percent.."% of the time")
                         else
-                            print("You have looted this variation "..numTimesLootedVariation.." times")
+                            log("You have looted this variation "..numTimesLootedVariation.." times ("..percent.."% of the time)")
                         end
-
-                        local percent = math.floor(numTimesLootedVariation * 10000 / numTimesLooted) / 100
-                        print("This variation has appeared "..percent.."% of the time")
                     end
                 end
 
@@ -317,7 +573,9 @@ local function eventHandler(self, event, ...)
                 lastTert = lastTert + 1
                 lastSocket = lastSocket + 1
 
-                print("Last upgrade was "..lastUpgrade.." loots ago (Epic: "..lastEpic.." Tert: "..lastTert.." Socket: "..lastSocket..")")
+                log("Last upgrade was "..lastUpgrade.." loots ago (Epic: "..lastEpic.." Tert: "..lastTert.." Socket: "..lastSocket..")")
+
+                lootLogLastDropGuid = targetGuid
 
                 -- append to loot table
                 lootTable[#lootTable + 1] = {
@@ -329,7 +587,9 @@ local function eventHandler(self, event, ...)
                     tert = tertiaryStat,
                     timestamp = time(),
                     zone = GetInstanceInfo(),
-                    expac = expansion
+                    expac = expacName,
+                    droppedBy = targetName,
+                    lootspec = lootspecName
                 }
             end
         end
