@@ -2,6 +2,19 @@ function log(msg)
     print("|cffC1FFBA"..msg)
 end
 
+function usage()
+    log("[LootLog] Usage:")
+    log("/lootlog list [zone|expac] [#-#]")
+    log("/lootlog stats [zone|expac] [#-#]")
+    log("/lootlog reset [zone|expac] #-#")
+    log("")
+    log("Examples:")
+    log("/ll list")
+    log("/lootlog list zone 1-100")
+    log("/lootlog stats expac")
+    log("/lootlog reset 42")
+end
+
 function logLoot(index, link, tert, sockets)
     local upgrades = {}
     if (tert ~= "None") then
@@ -19,10 +32,13 @@ function logLoot(index, link, tert, sockets)
 end
 
 function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
-    local msg = "[LootLog] "..prefix.." #"..index
-    if (lastIndex ~= index) then
-        msg = msg.."-"..lastIndex
+    local msg = "[LootLog] "..prefix
+    if (lastIndex == index) then
+        msg = msg.." loot #"..index
+    else
+        msg = msg.." loots #"..index.."-"..lastIndex
     end
+
     local filters = {}
     if (zoneFilter ~= nil) then
         filters[#filters + 1] = "zone is "..zoneFilter
@@ -41,6 +57,7 @@ end
 function logLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
     local lastIndex = math.min(index + count - 1, #lootTable)
+    index = math.max(index, 1)
 
     logQuery("Listing", index, lastIndex, zoneFilter, expacFilter)
 
@@ -80,6 +97,7 @@ end
 function resetLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
     local lastIndex = math.min(index + count - 1, #lootTable)
+    index = math.max(index, 1)
 
     logQuery("Resetting", index, lastIndex, zoneFilter, expacFilter)
 
@@ -130,6 +148,7 @@ function lootStats(index, count, zoneFilter, expacFilter)
 
     local lootTable = LootLogSavedVars or {}
     local lastIndex = math.min(index + count - 1, #lootTable)
+    index = math.max(index, 1)
 
     logQuery("Stats for", index, lastIndex, zoneFilter, expacFilter)
 
@@ -223,18 +242,21 @@ function lootStats(index, count, zoneFilter, expacFilter)
         end
     end
 
-    log("Number of drops: "..numDrops)
-    log("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
-    log("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
-    log("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops))
-    log("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
-    log("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
-    log("Can proc socket: "..getCountAndPercent(numCanProcSocketUpgrade, numDrops))
-    log("Socket ugprades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
-    log("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
-    log("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
-    log("Longest upgrade streak: "..longestUpgradeStreak)
-    log("Longest no-upgrade streak: "..longestNoUpgradeStreak)
+    if (numDrops == 0) then
+        log("No matching loots")
+    else
+        log("Number of loots: "..numDrops.." ("..numCanProcSocketUpgrade.." socket proc eligible)")
+        log("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
+        log("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
+        log("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops))
+        log("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
+        log("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
+        log("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
+        log("Socket ugprades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+        log("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+        log("Longest upgrade streak: "..longestUpgradeStreak)
+        log("Longest no-upgrade streak: "..longestNoUpgradeStreak)
+    end
 end
 
 function getNumRange(args)
@@ -417,19 +439,6 @@ function SlashCmdList.LOOTLOG(msg)
     else
         usage()
     end
-end
-
-function usage()
-    log("[LootLog] Usage:")
-    log("/lootlog list [zone|expac] [#[-#]]")
-    log("/lootlog stats [zone|expac] [#[-#]]")
-    log("/lootlog reset [zone|expac] #[-#]")
-    log("")
-    log("Examples:")
-    log("/ll list")
-    log("/lootlog list 1-100 expac")
-    log("/lootlog stats zone")
-    log("/lootlog reset 42")
 end
 
 -- global to avoid adding the drop twice if inventory is full
