@@ -1,0 +1,7 @@
+## Interface: 100005
+## Title: LootLog
+## Author: lo-fi
+## Version: 1.0
+## SavedVariables: LootLogSavedVars
+
+LootLog.lua
