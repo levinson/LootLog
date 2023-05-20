@@ -56,7 +56,7 @@ end
 
 function logLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
-    local lastIndex = math.min(index + count - 1, #lootTable)
+    local lastIndex = math.min(index + count, #lootTable)
     index = math.max(index, 1)
 
     logQuery("Listing", index, lastIndex, zoneFilter, expacFilter)
@@ -248,11 +248,11 @@ function lootStats(index, count, zoneFilter, expacFilter)
         log("Number of loots: "..numDrops.." ("..numCanProcSocketUpgrade.." socket proc eligible)")
         log("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
         log("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
-        log("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops))
+        log("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops, numCanProcSocketUpgrade))
         log("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
         log("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
         log("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
-        log("Socket ugprades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+        log("Socket upgrades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
         log("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
         log("Longest upgrade streak: "..longestUpgradeStreak)
         log("Longest no-upgrade streak: "..longestNoUpgradeStreak)
@@ -295,7 +295,7 @@ function getExpacID(instanceID)
         expacID = 3
     elseif (instanceID == 860 or instanceID == 870 or instanceID == 1064) then
         expacID = 4
-    elseif (instanceID == 1116 or instanceID == 1191 or instanceID == 1464) then
+    elseif (instanceID == 1116 or instanceID == 1152 or instanceID == 1158 or instanceID == 1191 or instanceID == 1330 or instanceID == 1464) then
         expacID = 5
     elseif (instanceID == 1220 or instanceID == 1669) then
         expacID = 6
@@ -348,7 +348,7 @@ function getFilters(args)
     while (arg ~= nil) do
         if (arg == "zone") then
             zoneFilter = zoneName
-        elseif (arg == "expac") then
+        elseif (arg == "expac" or arg == "xpac") then
             local expacID = getExpacID(instanceID)
             if (expacID ~= nil) then
                 expacFilter = getExpacName(expacID)
@@ -374,7 +374,7 @@ function getFilters(args)
                 end
 
                 if (expacFilter == nil) then
-                    log("[LootLog] Failed to lookup expac based on current zone")
+                    log("[LootLog] Failed to lookup expac based on current zone: "..instanceID)
                     expacFilter = ""
                 end
             end
@@ -409,7 +409,7 @@ function SlashCmdList.LOOTLOG(msg)
 
         -- Default to last 100 loots
         if (index == nil or count == nil) then
-            index = math.max(#lootTable - 100, 1)
+            index = math.max(#lootTable - 99, 1)
             count = 100
         end
 
@@ -423,7 +423,7 @@ function SlashCmdList.LOOTLOG(msg)
         else
             resetLoots(index, count, zoneFilter, expacFilter)
         end
-    elseif (cmd == "stats") then
+    elseif (cmd == "stats" or cmd == "stat") then
         local index, count = getNumRange(args)
 
         -- Default to all loots
@@ -453,6 +453,9 @@ local function eventHandler(self, event, ...)
     local targetGuid = UnitGUID("target")
     local targetName = GetUnitName("target") 
     local _, lootspecName = GetSpecializationInfoByID(GetLootSpecialization())
+    if (C_Loot.IsLegacyLootModeEnabled() == true) then
+        lootspecName = "Legacy"
+    end
 
     for i = 1, numLootItems do
         local itemLink = GetLootSlotLink(i)
@@ -460,7 +463,7 @@ local function eventHandler(self, event, ...)
         if itemLink then
             local itemName, itemLink, itemQuality, _, _, itemType, _, _, itemEquipLoc, _, _, _, _, _, expacId = GetItemInfo(itemLink)
 
-            if (itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon") and targetGuid ~= lootLogLastDropGuid) then
+            if (itemQuality ~= nil and itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon") and targetGuid ~= lootLogLastDropGuid) then
                 local itemStats = GetItemStats(itemLink)           
 
                 local numSockets = 0
@@ -491,20 +494,34 @@ local function eventHandler(self, event, ...)
 
                 local expacName = getExpacName(expacId)
 
+                lootLogLastDropGuid = targetGuid
+
+                -- append to loot table
+                lootTable[#lootTable + 1] = {
+                    name = itemName,
+                    link = itemLink,
+                    slot = itemEquipLoc,
+                    rarity = itemRarity,
+                    sockets = numSockets,
+                    tert = tertiaryStat,
+                    timestamp = time(),
+                    zone = GetInstanceInfo(),
+                    expac = expacName,
+                    droppedBy = targetName,
+                    lootspec = lootspecName
+                }
+
                 -- item stats
-                local numTimesLooted = 1
-                local numTimesLootedVariation = 1
-                -- overall stats
-                local lastUpgrade = 0
-                local lastSocket = 0
-                local lastTert = 0
-                local lastEpic = 0
+                local numTimesLooted = 0
+                local numTimesLootedVariation = 0
+
                 for k,v in pairs(lootTable) do
                     -- k is index, v is table
                     local name = ""
                     local sockets = 0
                     local tert = ""
                     local rarity = ""
+
                     for k,v in pairs(v) do
                         if (k == "name") then
                             name = v
@@ -526,38 +543,9 @@ local function eventHandler(self, event, ...)
                             numTimesLootedVariation = numTimesLootedVariation + 1
                         end
                     end
-
-                    local upgraded = false
-                    if (sockets > 0 or tert ~= "None" or rarity == "Epic") then
-                        upgraded = true
-                    end
-
-                    if upgraded then
-                        lastUpgrade = 0
-                    else
-                        lastUpgrade = lastUpgrade + 1
-                    end
-
-                    if (sockets > 0) then
-                        lastSocket = 0
-                    else 
-                        lastSocket = lastSocket + 1
-                    end
-
-                    if (tert ~= "None") then
-                        lastTert = 0
-                    else 
-                        lastTert = lastTert + 1
-                    end
-
-                    if (rarity == "Epic") then
-                        lastEpic = 0
-                    else
-                        lastEpic = lastEpic + 1
-                    end
                 end
 
-                logLoot(#lootTable + 1, itemLink, tertiaryStat, numSockets)
+                logLoot(#lootTable, itemLink, tertiaryStat, numSockets)
 
                 if (numTimesLooted == 1) then
                     log("This is the first time you have looted this item")
@@ -576,30 +564,6 @@ local function eventHandler(self, event, ...)
                         end
                     end
                 end
-
-                lastUpgrade = lastUpgrade + 1
-                lastEpic = lastEpic + 1
-                lastTert = lastTert + 1
-                lastSocket = lastSocket + 1
-
-                log("Last upgrade was "..lastUpgrade.." loots ago (Epic: "..lastEpic.." Tert: "..lastTert.." Socket: "..lastSocket..")")
-
-                lootLogLastDropGuid = targetGuid
-
-                -- append to loot table
-                lootTable[#lootTable + 1] = {
-                    name = itemName,
-                    link = itemLink,
-                    slot = itemEquipLoc,
-                    rarity = itemRarity,
-                    sockets = numSockets,
-                    tert = tertiaryStat,
-                    timestamp = time(),
-                    zone = GetInstanceInfo(),
-                    expac = expacName,
-                    droppedBy = targetName,
-                    lootspec = lootspecName
-                }
             end
         end
     end
