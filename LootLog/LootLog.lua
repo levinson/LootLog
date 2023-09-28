@@ -1,12 +1,19 @@
+local NAME, S = ...
+S.VERSION = GetAddOnMetadata(NAME, "Version")
+S.BUILD = "Release"
+
+LootLog = LibStub("AceAddon-3.0"):NewAddon(NAME, "LibSink-2.0")
+local LL = LootLog
+
 function log(msg)
-    print("|cffC1FFBA"..msg)
+    LL:Pour(msg)
 end
 
 function usage()
     log("[LootLog] Usage:")
-    log("/lootlog list [zone|expac] [#-#]")
-    log("/lootlog stats [zone|expac] [#-#]")
-    log("/lootlog reset [zone|expac] #-#")
+    log("/lootlog list [zone||expac] [#-#]")
+    log("/lootlog stats [zone||expac] [#-#]")
+    log("/lootlog reset [zone||expac] #-#")
     log("")
     log("Examples:")
     log("/ll list")
@@ -51,12 +58,11 @@ function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
     else
         log(msg)
     end
-    return msg
 end
 
 function logLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
-    local lastIndex = math.min(index + count, #lootTable)
+    local lastIndex = math.min(index + count - 1, #lootTable)
     index = math.max(index, 1)
 
     logQuery("Listing", index, lastIndex, zoneFilter, expacFilter)
@@ -407,10 +413,10 @@ function SlashCmdList.LOOTLOG(msg)
     if (cmd == "list") then
         local index, count = getNumRange(args)
 
-        -- Default to last 100 loots
+        -- Default to last 10 loots
         if (index == nil or count == nil) then
-            index = math.max(#lootTable - 99, 1)
-            count = 100
+            index = math.max(#lootTable - 9, 1)
+            count = 10
         end
 
         logLoots(index, count, zoneFilter, expacFilter)
@@ -419,7 +425,7 @@ function SlashCmdList.LOOTLOG(msg)
 
         -- Default to all loots
         if (index == nil or count == nil) then
-            log("[LootLog] You must define a range for reset")
+            log("[LootLog] Must define a range for reset")
         else
             resetLoots(index, count, zoneFilter, expacFilter)
         end
@@ -548,19 +554,19 @@ local function eventHandler(self, event, ...)
                 logLoot(#lootTable, itemLink, tertiaryStat, numSockets)
 
                 if (numTimesLooted == 1) then
-                    log("This is the first time you have looted this item")
+                    log("This is the first time I have looted this item")
                 else
-                    log("You have looted this item "..numTimesLooted.." times")
+                    log("I have looted this item "..numTimesLooted.." times")
                 end
 
                 if (numTimesLooted > 1) then
                     if (numTimesLooted ~= numTimesLootedVariation) then
                         local percent = getPercent(numTimesLootedVariation, numTimesLooted)
                         if (numTimesLootedVariation == 1) then
-                            log("This is the first time you have looted this variation")
+                            log("This is the first time I have looted this variation")
                             log("This variation has appeared "..percent.."% of the time")
                         else
-                            log("You have looted this variation "..numTimesLootedVariation.." times ("..percent.."% of the time)")
+                            log("I have looted this variation "..numTimesLootedVariation.." times ("..percent.."% of the time)")
                         end
                     end
                 end

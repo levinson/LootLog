@@ -1,7 +1,11 @@
-## Interface: 100100
+## Interface: 100107
 ## Title: LootLog
 ## Author: lo-fi
-## Version: 1.4.1
+## Version: 1.4.3
 ## SavedVariables: LootLogSavedVars
 
+embeds.xml
+
 LootLog.lua
+Options.lua
+Core.lua
