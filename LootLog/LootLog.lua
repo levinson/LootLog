@@ -5,20 +5,24 @@ S.BUILD = "Release"
 LootLog = LibStub("AceAddon-3.0"):NewAddon(NAME, "AceEvent-3.0", "LibSink-2.0")
 local LL = LootLog
 
-function usage()
-    LL:Pour("[LootLog] Usage:")
-    LL:Pour("/lootlog list [zone||expac] [#-#]")
-    LL:Pour("/lootlog stats [zone||expac] [#-#]")
-    LL:Pour("/lootlog reset [zone||expac] #-#")
-    LL:Pour("")
-    LL:Pour("Examples:")
-    LL:Pour("/ll list")
-    LL:Pour("/lootlog list zone 1-100")
-    LL:Pour("/lootlog stats expac")
-    LL:Pour("/lootlog reset 42")
+function LL:log(msg)
+    print("|cffC1FFBA"..msg)
 end
 
-function logLoot(index, link, tert, sockets)
+local function usage()
+    LL:log("[LootLog] Usage:")
+    LL:log("/lootlog list [zone||expac] [#-#]")
+    LL:log("/lootlog stats [zone||expac] [#-#]")
+    LL:log("/lootlog reset [zone||expac] #-#")
+    LL:log("")
+    LL:log("Examples:")
+    LL:log("/ll list")
+    LL:log("/lootlog list zone 1-100")
+    LL:log("/lootlog stats expac")
+    LL:log("/lootlog reset 42")
+end
+
+local function logLoot(index, link, tert, sockets)
     local upgrades = {}
     if (tert ~= "None") then
         upgrades[#upgrades + 1] = tert
@@ -34,7 +38,7 @@ function logLoot(index, link, tert, sockets)
     end
 end
 
-function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
+local function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
     local msg = "[LootLog] "..prefix
     if (lastIndex == index) then
         msg = msg.." loot #"..index
@@ -56,7 +60,7 @@ function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
     end
 end
 
-function logLoots(index, count, zoneFilter, expacFilter)
+local function logLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
     local lastIndex = math.min(index + count - 1, #lootTable)
     index = math.max(index, 1)
@@ -96,7 +100,7 @@ function logLoots(index, count, zoneFilter, expacFilter)
     end
 end
 
-function resetLoots(index, count, zoneFilter, expacFilter)
+local function resetLoots(index, count, zoneFilter, expacFilter)
     local lootTable = LootLogSavedVars or {}
     local lastIndex = math.min(index + count - 1, #lootTable)
     index = math.max(index, 1)
@@ -130,7 +134,7 @@ function resetLoots(index, count, zoneFilter, expacFilter)
     LootLogSavedVars = updatedLoots
 end
 
-function lootStats(index, count, zoneFilter, expacFilter)
+local function lootStats(index, count, zoneFilter, expacFilter)
     local numDrops = 0
     local numUpgrades = 0
     local numDoubleUpgrades = 0
@@ -261,7 +265,7 @@ function lootStats(index, count, zoneFilter, expacFilter)
     end
 end
 
-function getNumRange(args)
+local function getNumRange(args)
     local indexStr = nil
     local lastIndexStr = nil
     local index = nil
@@ -285,7 +289,7 @@ function getNumRange(args)
     return index, count
 end
 
-function getExpacID(instanceID)
+local function getExpacID(instanceID)
     local expacID = nil
     if (instanceID == 0 or instanceID == 1) then
         expacID = 0
@@ -311,7 +315,7 @@ function getExpacID(instanceID)
     return expacID
 end
 
-function getExpacName(expacID)
+local function getExpacName(expacID)
     local expacName = tostring(expacID)
     if (expacID == 0) then
         expacName = "Classic"
@@ -337,7 +341,7 @@ function getExpacName(expacID)
     return expacName
 end
 
-function getFilters(args)
+local function getFilters(args)
     -- parse filters from args
     local zoneFilter = nil
     local expacFilter = nil
@@ -376,7 +380,7 @@ function getFilters(args)
                 end
 
                 if (expacFilter == nil) then
-                    LL:Pour("[LootLog] Failed to lookup expac based on current zone: "..instanceID)
+                    LL:log("[LootLog] Failed to lookup expac based on current zone: "..instanceID)
                     expacFilter = ""
                 end
             end
@@ -387,11 +391,11 @@ function getFilters(args)
     return zoneFilter, expacFilter
 end
 
-function getPercent(count, total)
+local function getPercent(count, total)
     return math.floor(count * 10000 / total) / 100
 end
 
-function getCountAndPercent(count, total, numEligible)
+local function getCountAndPercent(count, total, numEligible)
     if (numEligible == nil) then
         return count.." ("..getPercent(count, total).."%)"
     else
@@ -421,7 +425,7 @@ function SlashCmdList.LOOTLOG(msg)
 
         -- Default to all loots
         if (index == nil or count == nil) then
-            LL:Pour("[LootLog] Must define a range for reset")
+            LL:log("[LootLog] Must define a range for reset")
         else
             resetLoots(index, count, zoneFilter, expacFilter)
         end
@@ -436,15 +440,15 @@ function SlashCmdList.LOOTLOG(msg)
 
         lootStats(index, count, zoneFilter, expacFilter)
     elseif (cmd ~= nil)then
-        LL:Pour("[LootLog] Unsupported command: "..cmd)
+        LL:log("[LootLog] Unsupported command: "..cmd)
         usage()
     else
         usage()
     end
 end
 
--- global to avoid adding the drop twice if inventory is full
-lootLogLastDropGuid = ""
+-- Avoid adding the drop twice if inventory is full
+S.LootLogLastDropGuid = ""
 
 function LL:LOOT_OPENED(event, msg)
     local lootTable = LootLogSavedVars or {}
@@ -462,7 +466,7 @@ function LL:LOOT_OPENED(event, msg)
         if itemLink then
             local itemName, itemLink, itemQuality, _, _, itemType, _, _, itemEquipLoc, _, _, _, _, _, expacId = GetItemInfo(itemLink)
 
-            if (itemQuality ~= nil and itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon") and targetGuid ~= lootLogLastDropGuid) then
+            if (itemQuality ~= nil and itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon") and targetGuid ~= S.LootLogLastDropGuid) then
                 local itemStats = GetItemStats(itemLink)           
 
                 local numSockets = 0
@@ -493,7 +497,7 @@ function LL:LOOT_OPENED(event, msg)
 
                 local expacName = getExpacName(expacId)
 
-                lootLogLastDropGuid = targetGuid
+                S.LootLogLastDropGuid = targetGuid
 
                 -- append to loot table
                 lootTable[#lootTable + 1] = {

@@ -23,5 +23,6 @@ function LL:RefreshDB()
 end
 
 function LL:OnEnable()
+	LL:log("["..NAME.."] Loaded version "..S.VERSION)
 	self:RegisterEvent("LOOT_OPENED", "LOOT_OPENED")
 end
