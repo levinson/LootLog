@@ -2,7 +2,7 @@ local NAME, S = ...
 S.VERSION = GetAddOnMetadata(NAME, "Version")
 S.BUILD = "Release"
 
-LootLog = LibStub("AceAddon-3.0"):NewAddon(NAME, "LibSink-2.0")
+LootLog = LibStub("AceAddon-3.0"):NewAddon(NAME, "AceEvent-3.0", "LibSink-2.0")
 local LL = LootLog
 
 function log(msg)
@@ -450,10 +450,7 @@ end
 -- global to avoid adding the drop twice if inventory is full
 lootLogLastDropGuid = ""
 
-local frame = CreateFrame("FRAME")
-frame:RegisterEvent("LOOT_OPENED")
-
-local function eventHandler(self, event, ...)
+function LL:LOOT_OPENED(event, msg)
     local lootTable = LootLogSavedVars or {}
     local numLootItems = GetNumLootItems()
     local targetGuid = UnitGUID("target")
@@ -576,5 +573,3 @@ local function eventHandler(self, event, ...)
 
     LootLogSavedVars = lootTable
 end
-
-frame:SetScript("OnEvent", eventHandler)

@@ -21,3 +21,7 @@ end
 function LL:RefreshDB()
 	self:SetSinkStorage(self.db.profile) -- LibSink-2.0
 end
+
+function LL:OnEnable()
+	self:RegisterEvent("LOOT_OPENED", "LOOT_OPENED")
+end
