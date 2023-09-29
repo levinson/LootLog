@@ -5,21 +5,17 @@ S.BUILD = "Release"
 LootLog = LibStub("AceAddon-3.0"):NewAddon(NAME, "AceEvent-3.0", "LibSink-2.0")
 local LL = LootLog
 
-function log(msg)
-    LL:Pour(msg)
-end
-
 function usage()
-    log("[LootLog] Usage:")
-    log("/lootlog list [zone||expac] [#-#]")
-    log("/lootlog stats [zone||expac] [#-#]")
-    log("/lootlog reset [zone||expac] #-#")
-    log("")
-    log("Examples:")
-    log("/ll list")
-    log("/lootlog list zone 1-100")
-    log("/lootlog stats expac")
-    log("/lootlog reset 42")
+    LL:Pour("[LootLog] Usage:")
+    LL:Pour("/lootlog list [zone||expac] [#-#]")
+    LL:Pour("/lootlog stats [zone||expac] [#-#]")
+    LL:Pour("/lootlog reset [zone||expac] #-#")
+    LL:Pour("")
+    LL:Pour("Examples:")
+    LL:Pour("/ll list")
+    LL:Pour("/lootlog list zone 1-100")
+    LL:Pour("/lootlog stats expac")
+    LL:Pour("/lootlog reset 42")
 end
 
 function logLoot(index, link, tert, sockets)
@@ -32,9 +28,9 @@ function logLoot(index, link, tert, sockets)
     end
     local prefix = "Loot #"..index.." "..link
     if (#upgrades > 0) then
-        log(prefix.." ("..table.concat(upgrades, " / ")..")")
+        return prefix.." ("..table.concat(upgrades, " / ")..")"
     else
-        log(prefix)
+        return prefix
     end
 end
 
@@ -54,9 +50,9 @@ function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
         filters[#filters + 1] = "expac is "..expacFilter
     end
     if (#filters > 0) then
-        log(msg.." where "..table.concat(filters, " and "))
+        LL:Pour(msg.." where "..table.concat(filters, " and "))
     else
-        log(msg)
+        LL:Pour(msg)
     end
 end
 
@@ -95,7 +91,7 @@ function logLoots(index, count, zoneFilter, expacFilter)
         if (zoneFilter ~= nil and zoneFilter ~= zone) then
         elseif (expacFilter ~= nil and expacFilter ~= expac) then
         else
-            logLoot(i, link, tert, sockets)
+            LL:Pour(logLoot(i, link, tert, sockets))
         end
     end
 end
@@ -249,19 +245,19 @@ function lootStats(index, count, zoneFilter, expacFilter)
     end
 
     if (numDrops == 0) then
-        log("No matching loots")
+        LL:Pour("No matching loots")
     else
-        log("Number of loots: "..numDrops.." ("..numCanProcSocketUpgrade.." socket proc eligible)")
-        log("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
-        log("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
-        log("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops, numCanProcSocketUpgrade))
-        log("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
-        log("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
-        log("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
-        log("Socket upgrades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
-        log("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
-        log("Longest upgrade streak: "..longestUpgradeStreak)
-        log("Longest no-upgrade streak: "..longestNoUpgradeStreak)
+        LL:Pour("Number of loots: "..numDrops.." ("..numCanProcSocketUpgrade.." socket proc eligible)")
+        LL:Pour("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
+        LL:Pour("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
+        LL:Pour("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops, numCanProcSocketUpgrade))
+        LL:Pour("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
+        LL:Pour("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
+        LL:Pour("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
+        LL:Pour("Socket upgrades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+        LL:Pour("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+        LL:Pour("Longest upgrade streak: "..longestUpgradeStreak)
+        LL:Pour("Longest no-upgrade streak: "..longestNoUpgradeStreak)
     end
 end
 
@@ -380,7 +376,7 @@ function getFilters(args)
                 end
 
                 if (expacFilter == nil) then
-                    log("[LootLog] Failed to lookup expac based on current zone: "..instanceID)
+                    LL:Pour("[LootLog] Failed to lookup expac based on current zone: "..instanceID)
                     expacFilter = ""
                 end
             end
@@ -425,7 +421,7 @@ function SlashCmdList.LOOTLOG(msg)
 
         -- Default to all loots
         if (index == nil or count == nil) then
-            log("[LootLog] Must define a range for reset")
+            LL:Pour("[LootLog] Must define a range for reset")
         else
             resetLoots(index, count, zoneFilter, expacFilter)
         end
@@ -440,7 +436,7 @@ function SlashCmdList.LOOTLOG(msg)
 
         lootStats(index, count, zoneFilter, expacFilter)
     elseif (cmd ~= nil)then
-        log("[LootLog] Unsupported command: "..cmd)
+        LL:Pour("[LootLog] Unsupported command: "..cmd)
         usage()
     else
         usage()
@@ -548,25 +544,29 @@ function LL:LOOT_OPENED(event, msg)
                     end
                 end
 
-                logLoot(#lootTable, itemLink, tertiaryStat, numSockets)
+                -- Build one message to output
+                local text = "[LootLog] "..logLoot(#lootTable, itemLink, tertiaryStat, numSockets)
 
                 if (numTimesLooted == 1) then
-                    log("This is the first time I have looted this item")
+                    text = text..". This is the first time I have looted this item."
                 else
-                    log("I have looted this item "..numTimesLooted.." times")
+                    text = text..". I have looted this item "..numTimesLooted.." times"
                 end
 
                 if (numTimesLooted > 1) then
                     if (numTimesLooted ~= numTimesLootedVariation) then
                         local percent = getPercent(numTimesLootedVariation, numTimesLooted)
                         if (numTimesLootedVariation == 1) then
-                            log("This is the first time I have looted this variation")
-                            log("This variation has appeared "..percent.."% of the time")
+                            text = text.." and this is the first time I have looted this variation ("..percent.."% of the time)."
                         else
-                            log("I have looted this variation "..numTimesLootedVariation.." times ("..percent.."% of the time)")
+                            text = text.." and this variation "..numTimesLootedVariation.." times ("..percent.."% of the time)."
                         end
                     end
+                else
+                    text = text.."."
                 end
+
+                LL:Pour(text)
             end
         end
     end
