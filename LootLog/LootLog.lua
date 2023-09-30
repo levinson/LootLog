@@ -11,9 +11,9 @@ end
 
 local function usage()
     LL:log("["..NAME.."] Usage:")
-    LL:log("/lootlog list [zone||expac] [#-#]")
-    LL:log("/lootlog stats [zone||expac] [#-#]")
-    LL:log("/lootlog reset [zone||expac] #-#")
+    LL:log("/lootlog list [zone|expac|boss] [#]")
+    LL:log("/lootlog stats [zone|expac|boss] [#]")
+    LL:log("/lootlog reset [zone|expac|boss] #")
     LL:log("")
     LL:log("Examples:")
     LL:log("/ll list")
@@ -61,7 +61,7 @@ local function logLoot(index, link, tert, sockets)
     return prefix..lootSuffix(tert, sockets)
 end
 
-local function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
+local function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter, bossFilter)
     local msg = "["..NAME.."] "..prefix
     if (lastIndex == index) then
         msg = msg.." loot #"..index
@@ -76,6 +76,9 @@ local function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
     if (expacFilter ~= nil) then
         filters[#filters + 1] = "expac is "..expacFilter
     end
+    if (bossFilter ~= nil) then
+        filters[#filters + 1] = "boss is "..bossFilter
+    end
     if (#filters > 0) then
         LL:log(msg.." where "..table.concat(filters, " and "))
     else
@@ -83,12 +86,12 @@ local function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
     end
 end
 
-local function logLoots(index, count, zoneFilter, expacFilter)
+local function logLoots(index, count, zoneFilter, expacFilter, bossFilter)
     local lootTable = LootLogSavedVars or {}
     local lastIndex = math.min(index + count - 1, #lootTable)
     index = math.max(index, 1)
 
-    logQuery("Listing", index, lastIndex, zoneFilter, expacFilter)
+    logQuery("Listing", index, lastIndex, zoneFilter, expacFilter, bossFilter)
 
     for i = index, lastIndex do
         local link = ""
@@ -96,51 +99,53 @@ local function logLoots(index, count, zoneFilter, expacFilter)
         local sockets = 0
         local zone = ""
         local expac = ""
+        local droppedBy = ""
 
         for k,v in pairs(lootTable[i]) do
             if (k == "link") then
                 link = v
-            end
-            if (k == "tert") then
+            elseif (k == "tert") then
                 tert = v
-            end
-            if (k == "sockets") then
+            elseif (k == "sockets") then
                 sockets = v
-            end
-            if (k == "zone") then
+            elseif (k == "zone") then
                 zone = v
-            end
-            if (k == "expac") then
+            elseif (k == "expac") then
                 expac = v
+            elseif (k == "droppedBy") then
+                droppedBy = v
             end
         end
 
         if (zoneFilter ~= nil and zoneFilter ~= zone) then
         elseif (expacFilter ~= nil and expacFilter ~= expac) then
+        elseif (bossFilter ~= nil and bossFilter ~= droppedBy) then
         else
             LL:log(logLoot(i, link, tert, sockets))
         end
     end
 end
 
-local function resetLoots(index, count, zoneFilter, expacFilter)
+local function resetLoots(index, count, zoneFilter, expacFilter, bossFilter)
     local lootTable = LootLogSavedVars or {}
     local lastIndex = math.min(index + count - 1, #lootTable)
     index = math.max(index, 1)
 
-    logQuery("Resetting", index, lastIndex, zoneFilter, expacFilter)
+    logQuery("Resetting", index, lastIndex, zoneFilter, expacFilter, bossFilter)
 
     local updatedLoots = {}
     for i = 1, #lootTable do
         local zone = ""
         local expac = ""
+        local droppedBy = ""
 
         for k,v in pairs(lootTable[i]) do
             if (k == "zone") then
                 zone = v
-            end
-            if (k == "expac") then
+            elseif (k == "expac") then
                 expac = v
+            elseif (k == "droppedBy") then
+                droppedBy = v
             end
         end
 
@@ -148,6 +153,8 @@ local function resetLoots(index, count, zoneFilter, expacFilter)
             if (zoneFilter ~= nil and zoneFilter ~= zone) then
                 updatedLoots[#updatedLoots + 1] = lootTable[i]
             elseif (expacFilter ~= nil and expacFilter ~= expac) then
+                updatedLoots[#updatedLoots + 1] = lootTable[i]
+            elseif (bossFilter ~= nil and bossFilter ~= droppedBy) then
                 updatedLoots[#updatedLoots + 1] = lootTable[i]
             end
         else
@@ -224,7 +231,7 @@ local function itemStats(index)
     end
 end
 
-local function lootStats(index, count, zoneFilter, expacFilter)
+local function lootStats(index, count, zoneFilter, expacFilter, bossFilter)
     local numDrops = 0
     local numUpgrades = 0
     local numDoubleUpgrades = 0
@@ -246,7 +253,7 @@ local function lootStats(index, count, zoneFilter, expacFilter)
     local lastIndex = math.min(index + count - 1, #lootTable)
     index = math.max(index, 1)
 
-    logQuery("Stats for", index, lastIndex, zoneFilter, expacFilter)
+    logQuery("Stats for", index, lastIndex, zoneFilter, expacFilter, bossFilter)
 
     for i = 1, #lootTable do
         if (i >= index and i <= lastIndex) then
@@ -256,30 +263,29 @@ local function lootStats(index, count, zoneFilter, expacFilter)
             local zone = ""
             local expac = ""
             local slot = ""
+            local droppedBy = ""
     
             for k,v in pairs(lootTable[i]) do
                 if (k == "rarity") then
                     rarity = v
-                end
-                if (k == "tert") then
+                elseif (k == "tert") then
                     tert = v
-                end
-                if (k == "sockets") then
+                elseif (k == "sockets") then
                     sockets = v
-                end
-                if (k == "zone") then
+                elseif (k == "zone") then
                     zone = v
-                end
-                if (k == "expac") then
+                elseif (k == "expac") then
                     expac = v
-                end
-                if (k == "slot") then
+                elseif (k == "slot") then
                     slot = v
+                elseif (k == "droppedBy") then
+                    droppedBy = v
                 end
             end
 
             if (zoneFilter ~= nil and zoneFilter ~= zone) then
             elseif (expacFilter ~= nil and expacFilter ~= expac) then
+            elseif (bossFilter ~= nil and bossFilter ~= droppedBy) then
             else
                 numDrops = numDrops + 1
 
@@ -435,6 +441,7 @@ local function getFilters(args)
     -- parse filters from args
     local zoneFilter = nil
     local expacFilter = nil
+    local bossFilter = nil
     local lootTable = LootLogSavedVars or {}
     local zoneName, _, _, _, _, _, _, instanceID = GetInstanceInfo()
     if (args == nil) then
@@ -474,30 +481,44 @@ local function getFilters(args)
                     expacFilter = ""
                 end
             end
+
+        elseif (arg == "boss") then
+            local targetName = GetUnitName("target")
+            if (targetName == nil) then
+                LL:log("["..NAME.."] Must have a target to use boss filter!")
+                bossFilter = ""
+            else
+                bossFilter = targetName
+            end
+            
         end
         arg, args = args:match("%s*(%S+)(.*)")
     end
 
-    return zoneFilter, expacFilter
+    return zoneFilter, expacFilter, bossFilter
 end
 
 SLASH_LOOTLOG1 = "/lootlog"
 SLASH_LOOTLOG2 = "/ll"
 function SlashCmdList.LOOTLOG(msg)
     local cmd, args = msg:match("%s*(%S+)(.*)")
-    local zoneFilter, expacFilter = getFilters(args)
+    local zoneFilter, expacFilter, bossFilter = getFilters(args)
     local lootTable = LootLogSavedVars or {}
 
     if (cmd == "list") then
         local index, count = getNumRange(args)
 
-        -- Default to last 10 loots
+        -- Default number of loots when range not specified
         if (index == nil or count == nil) then
-            index = math.max(#lootTable - 9, 1)
-            count = 10
+            if (zoneFilter == nil and expacFilter == nil and bossFilter == nil) then
+                count = 10 -- No filters defined
+            else
+                count = 100 -- Filters defined
+            end
+            index = math.max(#lootTable - count + 1, 1)
         end
 
-        logLoots(index, count, zoneFilter, expacFilter)
+        logLoots(index, count, zoneFilter, expacFilter, bossFilter)
     elseif (cmd == "reset") then
         local index, count = getNumRange(args)
 
@@ -505,7 +526,7 @@ function SlashCmdList.LOOTLOG(msg)
         if (index == nil or count == nil) then
             LL:log("["..NAME.."] Must define a range for reset")
         else
-            resetLoots(index, count, zoneFilter, expacFilter)
+            resetLoots(index, count, zoneFilter, expacFilter, bossFilter)
         end
     elseif (cmd == "stats" or cmd == "stat") then
         local index, count = getNumRange(args)
@@ -519,7 +540,7 @@ function SlashCmdList.LOOTLOG(msg)
         if (count == 1) then
             itemStats(index)
         else
-            lootStats(index, count, zoneFilter, expacFilter)
+            lootStats(index, count, zoneFilter, expacFilter, bossFilter)
         end
     elseif (cmd ~= nil)then
         LL:log("["..NAME.."] Unsupported command: "..cmd)
@@ -610,14 +631,11 @@ function LL:LOOT_OPENED(event, msg)
                     for k,v in pairs(v) do
                         if (k == "name") then
                             name = v
-                        end
-                        if (k == "sockets") then
+                        elseif (k == "sockets") then
                             sockets = v
-                        end
-                        if (k == "tert") then
+                        elseif (k == "tert") then
                             tert = v
-                        end
-                        if (k == "rarity") then
+                        elseif (k == "rarity") then
                             rarity = v
                         end
                     end
@@ -637,9 +655,6 @@ function LL:LOOT_OPENED(event, msg)
                     text = text..". This is the first time I have looted this item."
                 else
                     text = text..". I have looted this item "..numTimesLooted.." times"
-                end
-
-                if (numTimesLooted > 1) then
                     if (numTimesLooted ~= numTimesLootedVariation) then
                         local percent = getPercent(numTimesLootedVariation, numTimesLooted)
                         if (numTimesLootedVariation == 1) then
@@ -647,9 +662,9 @@ function LL:LOOT_OPENED(event, msg)
                         else
                             text = text.." and this variation "..numTimesLootedVariation.." times ("..percent.."% of the time)."
                         end
+                    else
+                        text = text.."."
                     end
-                else
-                    text = text.."."
                 end
 
                 LL:Pour(text)
