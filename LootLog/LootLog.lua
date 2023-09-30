@@ -10,7 +10,7 @@ function LL:log(msg)
 end
 
 local function usage()
-    LL:log("[LootLog] Usage:")
+    LL:log("["..NAME.."] Usage:")
     LL:log("/lootlog list [zone||expac] [#-#]")
     LL:log("/lootlog stats [zone||expac] [#-#]")
     LL:log("/lootlog reset [zone||expac] #-#")
@@ -22,6 +22,33 @@ local function usage()
     LL:log("/lootlog reset 42")
 end
 
+local function getPercent(count, total)
+    return math.floor(count * 10000 / total) / 100
+end
+
+local function getCountAndPercent(count, total, numEligible)
+    if (numEligible == nil) then
+        return count.." ("..getPercent(count, total).."%)"
+    else
+        return count.." ("..getPercent(count, total).."% of total or "..getPercent(count, numEligible).."% of eligible)"
+    end
+end
+
+local function lootSuffix(tert, sockets)
+    local upgrades = {}
+    if (tert ~= "None") then
+        upgrades[#upgrades + 1] = tert
+    end
+    if (sockets > 0) then
+        upgrades[#upgrades + 1] = "Sockets: "..sockets
+    end
+    if (#upgrades > 0) then
+        return " ("..table.concat(upgrades, " / ")..")"
+    else
+        return ""
+    end
+end
+
 local function logLoot(index, link, tert, sockets)
     local upgrades = {}
     if (tert ~= "None") then
@@ -31,15 +58,11 @@ local function logLoot(index, link, tert, sockets)
         upgrades[#upgrades + 1] = "Sockets: "..sockets
     end
     local prefix = "Loot #"..index.." "..link
-    if (#upgrades > 0) then
-        return prefix.." ("..table.concat(upgrades, " / ")..")"
-    else
-        return prefix
-    end
+    return prefix..lootSuffix(tert, sockets)
 end
 
 local function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
-    local msg = "[LootLog] "..prefix
+    local msg = "["..NAME.."] "..prefix
     if (lastIndex == index) then
         msg = msg.." loot #"..index
     else
@@ -54,9 +77,9 @@ local function logQuery(prefix, index, lastIndex, zoneFilter, expacFilter)
         filters[#filters + 1] = "expac is "..expacFilter
     end
     if (#filters > 0) then
-        LL:Pour(msg.." where "..table.concat(filters, " and "))
+        LL:log(msg.." where "..table.concat(filters, " and "))
     else
-        LL:Pour(msg)
+        LL:log(msg)
     end
 end
 
@@ -95,7 +118,7 @@ local function logLoots(index, count, zoneFilter, expacFilter)
         if (zoneFilter ~= nil and zoneFilter ~= zone) then
         elseif (expacFilter ~= nil and expacFilter ~= expac) then
         else
-            LL:Pour(logLoot(i, link, tert, sockets))
+            LL:log(logLoot(i, link, tert, sockets))
         end
     end
 end
@@ -132,6 +155,73 @@ local function resetLoots(index, count, zoneFilter, expacFilter)
         end
     end
     LootLogSavedVars = updatedLoots
+end
+
+local function itemStats(index)
+    local lootTable = LootLogSavedVars or {}
+    local itemName = ""
+    for k,v in pairs(lootTable[index]) do
+        if (k == "name") then
+            itemName = v
+        end
+    end
+
+    LL:log("["..NAME.."] Stats for loot: "..itemName)
+
+    local countTable = {} -- key is (rarity, tert, sockets) value is count 
+    local textTable = {} -- key is (rarity, tert, sockets) value is text
+    local maxCount = 0
+    local totalCount = 0
+
+    for i = 1, #lootTable do
+        local name = ""
+        local link = ""
+        local rarity = ""
+        local tert = "None"
+        local sockets = 0
+
+        for k,v in pairs(lootTable[i]) do
+            if (k == "name") then
+                name = v
+            elseif (k == "link") then
+                link = v
+            elseif (k == "rarity") then
+                rarity = v
+            elseif (k == "tert") then
+                tert = v
+            elseif (k == "sockets") then
+                sockets = v
+            end
+        end
+
+        if (name == itemName) then
+            local combo = rarity..tert..sockets
+            if (countTable[combo] == nil) then
+                countTable[combo] = 1
+                textTable[combo] = link..lootSuffix(tert, sockets)
+                if (maxCount < 1) then
+                    maxCount = 1
+                end
+            else
+                local count = countTable[combo] + 1
+                countTable[combo] = count
+                if (count > maxCount) then
+                    maxCount = count
+                end
+            end
+            totalCount = totalCount + 1
+        end
+    end
+
+    for i = maxCount, 1, -1 do
+        for combo, count in pairs(countTable) do
+            if (count == i) then
+                local prefix = getCountAndPercent(i, totalCount)
+                local text = textTable[combo]
+                LL:log(prefix.." "..text)
+            end
+        end
+    end
 end
 
 local function lootStats(index, count, zoneFilter, expacFilter)
@@ -249,19 +339,19 @@ local function lootStats(index, count, zoneFilter, expacFilter)
     end
 
     if (numDrops == 0) then
-        LL:Pour("No matching loots")
+        LL:log("No matching loots")
     else
-        LL:Pour("Number of loots: "..numDrops.." ("..numCanProcSocketUpgrade.." socket proc eligible)")
-        LL:Pour("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
-        LL:Pour("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
-        LL:Pour("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops, numCanProcSocketUpgrade))
-        LL:Pour("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
-        LL:Pour("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
-        LL:Pour("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
-        LL:Pour("Socket upgrades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
-        LL:Pour("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
-        LL:Pour("Longest upgrade streak: "..longestUpgradeStreak)
-        LL:Pour("Longest no-upgrade streak: "..longestNoUpgradeStreak)
+        LL:log("Number of loots: "..numDrops.." ("..numCanProcSocketUpgrade.." socket proc eligible)")
+        LL:log("Single upgrades: "..getCountAndPercent(numUpgrades, numDrops))
+        LL:log("Double upgrades: "..getCountAndPercent(numDoubleUpgrades, numDrops))
+        LL:log("Triple upgrades: "..getCountAndPercent(numTripleUpgrades, numDrops, numCanProcSocketUpgrade))
+        LL:log("Epic upgrades: "..getCountAndPercent(numEpicUpgrades, numDrops))
+        LL:log("Tert upgrades: "..getCountAndPercent(numTertUpgrades, numDrops))
+        LL:log("Epic tert upgrades: "..getCountAndPercent(numEpicTertUpgrades, numDrops))
+        LL:log("Socket upgrades: "..getCountAndPercent(numSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+        LL:log("Epic socket upgrades: "..getCountAndPercent(numEpicSocketUpgrades, numDrops, numCanProcSocketUpgrade))
+        LL:log("Longest upgrade streak: "..longestUpgradeStreak)
+        LL:log("Longest no-upgrade streak: "..longestNoUpgradeStreak)
     end
 end
 
@@ -380,7 +470,7 @@ local function getFilters(args)
                 end
 
                 if (expacFilter == nil) then
-                    LL:log("[LootLog] Failed to lookup expac based on current zone: "..instanceID)
+                    LL:log("["..NAME.."] Failed to lookup expac based on current zone: "..instanceID)
                     expacFilter = ""
                 end
             end
@@ -389,18 +479,6 @@ local function getFilters(args)
     end
 
     return zoneFilter, expacFilter
-end
-
-local function getPercent(count, total)
-    return math.floor(count * 10000 / total) / 100
-end
-
-local function getCountAndPercent(count, total, numEligible)
-    if (numEligible == nil) then
-        return count.." ("..getPercent(count, total).."%)"
-    else
-        return count.." ("..getPercent(count, total).."% of total or "..getPercent(count, numEligible).."% of eligible)"
-    end
 end
 
 SLASH_LOOTLOG1 = "/lootlog"
@@ -425,7 +503,7 @@ function SlashCmdList.LOOTLOG(msg)
 
         -- Default to all loots
         if (index == nil or count == nil) then
-            LL:log("[LootLog] Must define a range for reset")
+            LL:log("["..NAME.."] Must define a range for reset")
         else
             resetLoots(index, count, zoneFilter, expacFilter)
         end
@@ -438,9 +516,13 @@ function SlashCmdList.LOOTLOG(msg)
             count = #lootTable
         end
 
-        lootStats(index, count, zoneFilter, expacFilter)
+        if (count == 1) then
+            itemStats(index)
+        else
+            lootStats(index, count, zoneFilter, expacFilter)
+        end
     elseif (cmd ~= nil)then
-        LL:log("[LootLog] Unsupported command: "..cmd)
+        LL:log("["..NAME.."] Unsupported command: "..cmd)
         usage()
     else
         usage()
@@ -448,7 +530,7 @@ function SlashCmdList.LOOTLOG(msg)
 end
 
 -- Avoid adding the drop twice if inventory is full
-S.LootLogLastDropGuid = ""
+S.LastDropGuid = ""
 
 function LL:LOOT_OPENED(event, msg)
     local lootTable = LootLogSavedVars or {}
@@ -466,7 +548,7 @@ function LL:LOOT_OPENED(event, msg)
         if itemLink then
             local itemName, itemLink, itemQuality, _, _, itemType, _, _, itemEquipLoc, _, _, _, _, _, expacId = GetItemInfo(itemLink)
 
-            if (itemQuality ~= nil and itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon") and targetGuid ~= S.LootLogLastDropGuid) then
+            if (itemQuality ~= nil and itemQuality >= 3 and itemQuality <= 5 and (itemType == "Armor" or itemType == "Weapon") and targetGuid ~= S.LastDropGuid) then
                 local itemStats = GetItemStats(itemLink)           
 
                 local numSockets = 0
@@ -497,7 +579,7 @@ function LL:LOOT_OPENED(event, msg)
 
                 local expacName = getExpacName(expacId)
 
-                S.LootLogLastDropGuid = targetGuid
+                S.LastDropGuid = targetGuid
 
                 -- append to loot table
                 lootTable[#lootTable + 1] = {
@@ -549,7 +631,7 @@ function LL:LOOT_OPENED(event, msg)
                 end
 
                 -- Build one message to output
-                local text = "[LootLog] "..logLoot(#lootTable, itemLink, tertiaryStat, numSockets)
+                local text = "["..NAME.."] "..logLoot(#lootTable, itemLink, tertiaryStat, numSockets)
 
                 if (numTimesLooted == 1) then
                     text = text..". This is the first time I have looted this item."

@@ -1,7 +1,7 @@
 ## Interface: 100107
 ## Title: LootLog
 ## Author: lo-fi
-## Version: 1.4.5
+## Version: 1.4.6
 ## SavedVariables: LootLogSavedVars
 
 embeds.xml
